@@ -387,15 +387,21 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun getFormattedExportText(categoryId: Int, dateString: String): String {
         val list = submissionDao.getSubmissionsForCategoryAndDate(categoryId, dateString)
-        val groupedByUser = list.groupBy { it.userId }
         val builder = StringBuilder()
-
-        for ((_, userSubmissions) in groupedByUser) {
-            for (sub in userSubmissions) {
-                builder.append(sub.formattedString).append("\n")
-            }
+        for (sub in list) {
+            builder.append("${sub.uid}\t${sub.password}\t${sub.rawCookie}\n")
         }
+        return builder.toString().trim()
+    }
 
+    suspend fun getFormattedExportCsv(categoryId: Int, dateString: String): String {
+        val list = submissionDao.getSubmissionsForCategoryAndDate(categoryId, dateString)
+        val builder = StringBuilder()
+        builder.append("UID,Password,Cookie\n")
+        for (sub in list) {
+            val cleanCookie = sub.rawCookie.replace("\"", "\"\"")
+            builder.append("\"${sub.uid}\",\"${sub.password}\",\"$cleanCookie\"\n")
+        }
         return builder.toString().trim()
     }
 }

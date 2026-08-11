@@ -605,7 +605,7 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                             value = exportedText,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Formatted Output (UID/Password/Cookie)") },
+                            label = { Text("Formatted Output (Column A: UID / Column B: Password / Column C: Cookie)") },
                             minLines = 8,
                             maxLines = 16,
                             modifier = Modifier.fillMaxWidth()
@@ -630,42 +630,36 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
 
                             Button(
                                 onClick = {
-                                    try {
-                                        val cleanCatName = selectedExportCategory?.name?.replace(" ", "_") ?: "Export"
-                                        val cleanDate = selectedExportDate.replace("-", "_")
-                                        val fileName = "Sheet_${cleanCatName}_$cleanDate.xlsx"
-                                        val file = java.io.File(context.cacheDir, fileName)
+                                    val cat = selectedExportCategory
+                                    if (cat != null && selectedExportDate.isNotBlank()) {
+                                        coroutineScope.launch {
+                                            try {
+                                                val csvContent = viewModel.getFormattedExportCsv(cat.id, selectedExportDate)
+                                                val cleanCatName = cat.name.replace(" ", "_")
+                                                val cleanDate = selectedExportDate.replace("-", "_")
+                                                val fileName = "Sheet_${cleanCatName}_$cleanDate.csv"
+                                                val file = java.io.File(context.cacheDir, fileName)
+                                                file.writeText(csvContent)
 
-                                        // Formatted Excel content
-                                        val excelContent = exportedText.lines().joinToString("\n") { line ->
-                                            if (line.contains("/")) {
-                                                line.replace("/", "\t")
-                                            } else line
+                                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.fileprovider",
+                                                    file
+                                                )
+
+                                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                    type = "text/csv"
+                                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                                    putExtra(android.content.Intent.EXTRA_SUBJECT, fileName)
+                                                    putExtra(android.content.Intent.EXTRA_TEXT, csvContent)
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Open with Excel / Google Sheets (.csv)"))
+                                                Toast.makeText(context, "Exporting CSV for Excel: $fileName", Toast.LENGTH_SHORT).show()
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
-
-                                        file.writeText(excelContent)
-
-                                        val uri = androidx.core.content.FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            file
-                                        )
-
-                                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                            type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                            putExtra(android.content.Intent.EXTRA_SUBJECT, fileName)
-                                            putExtra(android.content.Intent.EXTRA_TEXT, excelContent)
-                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Download / Save Excel Sheet (.xlsx)"))
-                                        Toast.makeText(context, "Downloading Excel Sheet: $fileName", Toast.LENGTH_SHORT).show()
-                                    } catch (e: Exception) {
-                                        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(android.content.Intent.EXTRA_TEXT, exportedText)
-                                        }
-                                        context.startActivity(android.content.Intent.createChooser(fallbackIntent, "Download / Share Sheet"))
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -673,7 +667,7 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                             ) {
                                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Download Sheet", fontWeight = FontWeight.Bold)
+                                Text("Excel/CSV Sheet", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

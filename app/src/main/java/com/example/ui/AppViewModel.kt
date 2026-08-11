@@ -379,4 +379,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun getFormattedExportText(categoryId: Int, dateString: String): String {
         return repository.getFormattedExportText(categoryId, dateString)
     }
+
+    suspend fun getFormattedExportCsv(categoryId: Int, dateString: String): String {
+        return repository.getFormattedExportCsv(categoryId, dateString)
+    }
 }

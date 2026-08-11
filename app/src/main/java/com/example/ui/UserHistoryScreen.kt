@@ -195,6 +195,42 @@ fun UserHistoryScreen(viewModel: AppViewModel) {
                     filteredSubmissions.groupBy { it.dateString }
                 }
 
+                var selectedDateForDialog by remember { mutableStateOf<String?>(null) }
+
+                if (selectedDateForDialog != null) {
+                    val dialogDate = selectedDateForDialog!!
+                    val dialogItems = groupedByDate[dialogDate] ?: emptyList()
+
+                    AlertDialog(
+                        onDismissRequest = { selectedDateForDialog = null },
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("$dialogDate (${dialogItems.size} Accounts)")
+                            }
+                        },
+                        text = {
+                            Box(modifier = Modifier.heightIn(max = 420.dp)) {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(dialogItems, key = { it.id }) { item ->
+                                        SubmissionHistoryItemCard(item)
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { selectedDateForDialog = null }) {
+                                Text("Close", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                }
+
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -202,44 +238,45 @@ fun UserHistoryScreen(viewModel: AppViewModel) {
                     groupedByDate.forEach { (dateStr, itemsOnDate) ->
                         item(key = "date_header_$dateStr") {
                             val totalValueOnDate = itemsOnDate.sumOf { it.submittedRate }
-                            val datePendingCount = itemsOnDate.count { it.status == "PENDING" }
-                            val dateSuccessCount = itemsOnDate.count { it.status == "SUCCESS" }
 
-                            Surface(
+                            Card(
+                                onClick = { selectedDateForDialog = dateStr },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                             ) {
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CalendarToday,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text(
-                                            text = dateStr,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CalendarToday,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Text(
+                                                text = dateStr,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
 
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
                                         Surface(
                                             color = MaterialTheme.colorScheme.primaryContainer,
                                             shape = RoundedCornerShape(20.dp)
@@ -252,13 +289,37 @@ fun UserHistoryScreen(viewModel: AppViewModel) {
                                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                             )
                                         }
+                                    }
 
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Text(
-                                            text = "৳${"%.0f".format(totalValueOnDate)}",
+                                            text = "Earned: ৳${"%.2f".format(totalValueOnDate)}",
                                             style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Black,
+                                            fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "Tap to View",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.ChevronRight,
+                                                contentDescription = "View Accounts",
+                                                tint = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
