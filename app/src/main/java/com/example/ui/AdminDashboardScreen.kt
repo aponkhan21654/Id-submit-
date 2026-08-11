@@ -64,6 +64,7 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
     var reportCategoryExpanded by remember { mutableStateOf(false) }
     var selectedReportDate by remember { mutableStateOf("") }
     var reportDateExpanded by remember { mutableStateOf(false) }
+    var reportRateInput by remember { mutableStateOf("") }
     var successUidsInput by remember { mutableStateOf("") }
     var reportResultSummary by remember { mutableStateOf<String?>(null) }
 
@@ -83,6 +84,7 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
         }
         if (selectedReportCategory == null && categories.isNotEmpty()) {
             selectedReportCategory = categories.first()
+            reportRateInput = categories.first().rate.toString()
         }
         if (selectedExportDate.isEmpty() && dates.isNotEmpty()) {
             selectedExportDate = dates.first()
@@ -790,15 +792,38 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                         ) {
                             categories.forEach { cat ->
                                 DropdownMenuItem(
-                                    text = { Text(cat.name) },
+                                    text = { Text("${cat.name} (Default: ৳${cat.rate})") },
                                     onClick = {
                                         selectedReportCategory = cat
+                                        reportRateInput = cat.rate.toString()
                                         reportCategoryExpanded = false
                                     }
                                 )
                             }
                         }
                     }
+
+                    // Custom Rate Per Account Field
+                    OutlinedTextField(
+                        value = reportRateInput,
+                        onValueChange = { reportRateInput = it },
+                        label = { Text("Reward Rate Per Account (৳)") },
+                        placeholder = { Text("e.g. 35.0 or 40.0") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("report_rate_input"),
+                        supportingText = {
+                            Text(
+                                text = "💡 রিপোর্ট দেওয়ার আগে এখানে Rate কমানো/ বাড়ানো যাবে। ম্যাচ করা প্রতি Success Account এর জন্য User এই Rate এ টাকা পাবে।",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    )
 
                     // Select Date
                     ExposedDropdownMenuBox(
@@ -849,13 +874,18 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                                 Toast.makeText(context, "Category এবং Date সিলেক্ট করুন", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+                            val rateVal = reportRateInput.toDoubleOrNull()
+                            if (rateVal == null || rateVal <= 0) {
+                                Toast.makeText(context, "সঠিক Rate দিন (e.g. 35.0)", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
                             if (successUidsInput.isBlank()) {
                                 Toast.makeText(context, "Success UIDs পেস্ট করুন", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
 
-                            viewModel.processAdminReport(cat.id, selectedReportDate, successUidsInput) { succ, rej ->
-                                reportResultSummary = "Report Completed: $succ Success (Green), $rej Rejected (Red)"
+                            viewModel.processAdminReport(cat.id, selectedReportDate, successUidsInput, customRate = rateVal) { succ, rej ->
+                                reportResultSummary = "Report Completed: $succ Success (Green - Paid ৳${rateVal}/acc), $rej Rejected (Red)"
                                 successUidsInput = ""
                             }
                         },

@@ -110,13 +110,11 @@ object SupabaseSyncService {
     // 3. PUSH USER
     fun pushUser(user: UserEntity) {
         try {
+            val cleanEmail = user.email.trim().lowercase()
             val json = JSONObject().apply {
-                if (user.id > 0) {
-                    put("id", user.id)
-                }
                 put("name", user.name)
-                put("email", user.email)
-                put("password", user.password)
+                put("email", cleanEmail)
+                put("password", user.password.trim())
                 put("refer_code", user.referCode)
                 put("used_refer_code", user.usedReferCode)
                 put("telegram_username", user.telegramUsername)
@@ -126,7 +124,7 @@ object SupabaseSyncService {
                 put("withdraw_pin", user.withdrawPin)
             }
 
-            val request = buildRequest("users", "POST", json.toString().toRequestBody(jsonMediaType))
+            val request = buildRequest("users?on_conflict=email", "POST", json.toString().toRequestBody(jsonMediaType))
             okHttpClient.newCall(request).execute().use { response ->
                 Log.d("SupabaseSync", "Push user code: ${response.code}")
             }
@@ -171,12 +169,13 @@ object SupabaseSyncService {
     }
 
     // UPDATE USER PIN
-    fun updateUserPin(userId: Int, pin: String) {
+    fun updateUserPin(userEmail: String, pin: String) {
         try {
+            val cleanEmail = userEmail.trim().lowercase()
             val json = JSONObject().apply {
                 put("withdraw_pin", pin)
             }
-            val request = buildRequest("users?id=eq.$userId", "PATCH", json.toString().toRequestBody(jsonMediaType))
+            val request = buildRequest("users?email=eq.$cleanEmail", "PATCH", json.toString().toRequestBody(jsonMediaType))
             okHttpClient.newCall(request).execute().close()
         } catch (e: Exception) {
             Log.e("SupabaseSync", "Failed to update user pin: ${e.message}")
@@ -271,12 +270,13 @@ object SupabaseSyncService {
     }
 
     // 9. UPDATE USER BALANCE
-    fun updateUserBalance(userId: Int, newBalance: Double) {
+    fun updateUserBalance(userEmail: String, newBalance: Double) {
         try {
+            val cleanEmail = userEmail.trim().lowercase()
             val json = JSONObject().apply {
                 put("balance", newBalance)
             }
-            val request = buildRequest("users?id=eq.$userId", "PATCH", json.toString().toRequestBody(jsonMediaType))
+            val request = buildRequest("users?email=eq.$cleanEmail", "PATCH", json.toString().toRequestBody(jsonMediaType))
             okHttpClient.newCall(request).execute().close()
         } catch (e: Exception) {
             Log.e("SupabaseSync", "Failed to update user balance: ${e.message}")

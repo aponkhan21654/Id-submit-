@@ -112,11 +112,11 @@ class AppRepository(private val db: AppDatabase) {
             // 4. Sync Users
             val remoteUsers = com.example.data.remote.SupabaseSyncService.fetchUsers()
             for (u in remoteUsers) {
-                val local = userDao.getUserById(u.id)
+                val local = userDao.getUserByEmail(u.email)
                 if (local == null) {
-                    userDao.insertUser(u)
+                    userDao.insertUser(u.copy(id = 0))
                 } else {
-                    userDao.updateUser(u)
+                    userDao.updateUser(u.copy(id = local.id))
                 }
             }
 
@@ -189,13 +189,14 @@ class AppRepository(private val db: AppDatabase) {
         val cleanEmail = email.trim().lowercase()
         val cleanPass = pass.trim()
         
-        // Sync from remote first if user is not in local database (e.g. after app clear data)
-        var user = userDao.getUserByEmail(cleanEmail)
-        if (user == null) {
+        // Sync from remote first so that users registered on other phones are pulled immediately
+        try {
             syncFromRemote()
-            user = userDao.getUserByEmail(cleanEmail)
+        } catch (e: Exception) {
+            // Ignore offline network error
         }
 
+        val user = userDao.getUserByEmail(cleanEmail)
         if (user != null && user.password == cleanPass) {
             return user
         }
@@ -204,19 +205,22 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun setUserWithdrawPin(userId: Int, pin: String) {
         userDao.updateUserPin(userId, pin)
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            com.example.data.remote.SupabaseSyncService.updateUserPin(userId, pin)
+        val user = userDao.getUserById(userId)
+        if (user != null) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                com.example.data.remote.SupabaseSyncService.updateUserPin(user.email, pin)
+            }
         }
     }
 
     suspend fun resetUserPinByEmail(email: String): Result<Boolean> {
         return try {
-            val cleanEmail = email.trim()
+            val cleanEmail = email.trim().lowercase()
             val user = userDao.getUserByEmail(cleanEmail)
             if (user != null) {
                 userDao.updateUserPin(user.id, "")
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                    com.example.data.remote.SupabaseSyncService.updateUserPin(user.id, "")
+                    com.example.data.remote.SupabaseSyncService.updateUserPin(cleanEmail, "")
                 }
                 Result.success(true)
             } else {
@@ -226,7 +230,7 @@ class AppRepository(private val db: AppDatabase) {
                 if (userRemote != null) {
                     userDao.updateUserPin(userRemote.id, "")
                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                        com.example.data.remote.SupabaseSyncService.updateUserPin(userRemote.id, "")
+                        com.example.data.remote.SupabaseSyncService.updateUserPin(cleanEmail, "")
                     }
                     Result.success(true)
                 } else {
@@ -404,7 +408,7 @@ class AppRepository(private val db: AppDatabase) {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             com.example.data.remote.SupabaseSyncService.pushWithdrawal(newW.copy(id = wId.toInt()))
             userDao.getUserById(userId)?.let { updatedUser ->
-                com.example.data.remote.SupabaseSyncService.updateUserBalance(userId, updatedUser.balance)
+                com.example.data.remote.SupabaseSyncService.updateUserBalance(updatedUser.email, updatedUser.balance)
             }
         }
 
@@ -428,7 +432,7 @@ class AppRepository(private val db: AppDatabase) {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             com.example.data.remote.SupabaseSyncService.updateWithdrawalStatus(withdrawalId, newStatus)
             userDao.getUserById(w.userId)?.let { updatedUser ->
-                com.example.data.remote.SupabaseSyncService.updateUserBalance(w.userId, updatedUser.balance)
+                com.example.data.remote.SupabaseSyncService.updateUserBalance(updatedUser.email, updatedUser.balance)
             }
         }
 
@@ -438,7 +442,8 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun processAdminReport(
         categoryId: Int,
         dateString: String,
-        successUidsText: String
+        successUidsText: String,
+        customRate: Double? = null
     ): Result<Pair<Int, Int>> {
         val uidRegex = Regex("""[0-9]{8,20}""")
         val successUidsSet = uidRegex.findAll(successUidsText).map { it.value.trim() }.toSet()
@@ -452,20 +457,21 @@ class AppRepository(private val db: AppDatabase) {
         for (sub in pendingSubmissions) {
             val isSuccess = successUidsSet.contains(sub.uid)
             val newStatus = if (isSuccess) "SUCCESS" else "REJECTED"
+            val finalRate = if (customRate != null && customRate > 0) customRate else sub.submittedRate
 
             if (isSuccess) {
-                submissionDao.updateSubmissionStatus(sub.id, "SUCCESS")
-                userDao.addToBalance(sub.userId, sub.submittedRate)
+                submissionDao.updateSubmissionStatusAndRate(sub.id, "SUCCESS", finalRate)
+                userDao.addToBalance(sub.userId, finalRate)
                 successCount++
             } else {
-                submissionDao.updateSubmissionStatus(sub.id, "REJECTED")
+                submissionDao.updateSubmissionStatusAndRate(sub.id, "REJECTED", finalRate)
                 rejectCount++
             }
 
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 com.example.data.remote.SupabaseSyncService.updateSubmissionStatus(sub.id, newStatus)
                 userDao.getUserById(sub.userId)?.let { updatedUser ->
-                    com.example.data.remote.SupabaseSyncService.updateUserBalance(sub.userId, updatedUser.balance)
+                    com.example.data.remote.SupabaseSyncService.updateUserBalance(updatedUser.email, updatedUser.balance)
                 }
             }
         }

@@ -77,6 +77,9 @@ interface SubmissionDao {
     @Query("UPDATE submissions SET status = :status WHERE id = :id")
     suspend fun updateSubmissionStatus(id: Int, status: String)
 
+    @Query("UPDATE submissions SET status = :status, submittedRate = :rate WHERE id = :id")
+    suspend fun updateSubmissionStatusAndRate(id: Int, status: String, rate: Double)
+
     @Query("SELECT * FROM submissions WHERE id = :id LIMIT 1")
     suspend fun getSubmissionById(id: Int): SubmissionEntity?
 }

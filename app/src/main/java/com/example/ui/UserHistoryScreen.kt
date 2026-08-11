@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,7 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +26,9 @@ import com.example.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserHistoryScreen(viewModel: AppViewModel) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
     var mainTab by remember { mutableIntStateOf(0) } // 0: Submissions, 1: Withdrawals
 
     val submissions by viewModel.userSubmissions.collectAsState()
@@ -213,12 +220,132 @@ fun UserHistoryScreen(viewModel: AppViewModel) {
                             }
                         },
                         text = {
-                            Box(modifier = Modifier.heightIn(max = 420.dp)) {
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Box(modifier = Modifier.heightIn(max = 320.dp)) {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(dialogItems, key = { it.id }) { item ->
+                                            SubmissionHistoryItemCard(item)
+                                        }
+                                    }
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                // Quick Action & Download Buttons
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(dialogItems, key = { it.id }) { item ->
-                                        SubmissionHistoryItemCard(item)
+                                    val successCount = dialogItems.count { it.status == "SUCCESS" }
+                                    val rejectedCount = dialogItems.count { it.status == "REJECTED" }
+
+                                    // Row 1: Success UID Copy & Rejected UID Copy
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                val successList = dialogItems.filter { it.status == "SUCCESS" }.map { it.uid }
+                                                if (successList.isEmpty()) {
+                                                    Toast.makeText(context, "কোন Success UID পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    clipboardManager.setText(AnnotatedString(successList.joinToString("\n")))
+                                                    Toast.makeText(context, "${successList.size} Success UIDs Copied!", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SuccessGreen)
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("Success ($successCount)", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = {
+                                                val rejectedList = dialogItems.filter { it.status == "REJECTED" }.map { it.uid }
+                                                if (rejectedList.isEmpty()) {
+                                                    Toast.makeText(context, "কোন Rejected UID পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    clipboardManager.setText(AnnotatedString(rejectedList.joinToString("\n")))
+                                                    Toast.makeText(context, "${rejectedList.size} Rejected UIDs Copied!", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RejectedRed)
+                                        ) {
+                                            Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("Rejected ($rejectedCount)", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                        }
+                                    }
+
+                                    // Row 2: All UID Copy & Download File
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                val allList = dialogItems.map { it.uid }
+                                                if (allList.isEmpty()) {
+                                                    Toast.makeText(context, "কোন UID পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    clipboardManager.setText(AnnotatedString(allList.joinToString("\n")))
+                                                    Toast.makeText(context, "${allList.size} All UIDs Copied!", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("All UIDs (${dialogItems.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val sb = StringBuilder()
+                                                    sb.append("=== Submitted Accounts ($dialogDate) ===\n")
+                                                    sb.append("Total Accounts: ${dialogItems.size}\n")
+                                                    sb.append("----------------------------------\n\n")
+                                                    dialogItems.forEachIndexed { index, sub ->
+                                                        sb.append("Account #${index + 1}\n")
+                                                        sb.append("UID: ${sub.uid}\n")
+                                                        sb.append("Category: ${sub.categoryName}\n")
+                                                        sb.append("Status: ${sub.status}\n")
+                                                        sb.append("Data: ${sub.rawCookie.ifBlank { sub.formattedString.ifBlank { sub.uid } }}\n\n")
+                                                    }
+
+                                                    val sendIntent = android.content.Intent().apply {
+                                                        action = android.content.Intent.ACTION_SEND
+                                                        putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+                                                        putExtra(android.content.Intent.EXTRA_TITLE, "Submitted_Accounts_$dialogDate.txt")
+                                                        type = "text/plain"
+                                                    }
+                                                    val shareIntent = android.content.Intent.createChooser(sendIntent, "Download / Save File")
+                                                    context.startActivity(shareIntent)
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Download/Share Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("Download File", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                        }
                                     }
                                 }
                             }

@@ -452,10 +452,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         categoryId: Int,
         dateString: String,
         successUidsText: String,
+        customRate: Double? = null,
         onResult: (Int, Int) -> Unit
     ) {
         viewModelScope.launch {
-            val res = repository.processAdminReport(categoryId, dateString, successUidsText)
+            val res = repository.processAdminReport(categoryId, dateString, successUidsText, customRate)
             res.fold(
                 onSuccess = { pair ->
                     _userMessage.value = "Report সম্পন্ন: Success = ${pair.first}, Rejected = ${pair.second}"
