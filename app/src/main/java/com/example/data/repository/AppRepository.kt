@@ -105,7 +105,12 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun registerUser(user: UserEntity, usedReferCodeInput: String): Result<Long> {
         return try {
-            val existing = userDao.getUserByEmail(user.email)
+            val cleanEmail = user.email.trim().lowercase()
+            var existing = userDao.getUserByEmail(cleanEmail)
+            if (existing == null) {
+                syncFromRemote()
+                existing = userDao.getUserByEmail(cleanEmail)
+            }
             if (existing != null) {
                 return Result.failure(Exception("এই Gmail দিয়ে ইতোমধ্যে account তৈরি করা হয়েছে।"))
             }
@@ -117,15 +122,17 @@ class AppRepository(private val db: AppDatabase) {
             }
 
             val finalUser = user.copy(
+                email = cleanEmail,
                 referCode = uniqueCode,
                 usedReferCode = usedReferCodeInput.trim().uppercase()
             )
 
             val id = userDao.insertUser(finalUser)
+            val insertedUser = finalUser.copy(id = id.toInt())
 
-            // Sync to Supabase
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                com.example.data.remote.SupabaseSyncService.pushUser(finalUser.copy(id = id.toInt()))
+            // Synchronously push to Supabase to guarantee account is saved in database
+            withContext(Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.pushUser(insertedUser)
             }
 
             // If a valid referral code was entered, reward referrer
@@ -147,12 +154,12 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     suspend fun loginUser(email: String, pass: String): UserEntity? {
-        val cleanEmail = email.trim()
+        val cleanEmail = email.trim().lowercase()
         val cleanPass = pass.trim()
+        
+        // Sync from remote first if user is not in local database (e.g. after app clear data)
         var user = userDao.getUserByEmail(cleanEmail)
-
         if (user == null) {
-            // Attempt remote sync if app data was cleared
             syncFromRemote()
             user = userDao.getUserByEmail(cleanEmail)
         }

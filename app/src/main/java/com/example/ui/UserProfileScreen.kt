@@ -317,6 +317,7 @@ fun UserProfileScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
+                        modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -339,13 +340,36 @@ fun UserProfileScreen(
                         }
                     }
 
-                    OutlinedButton(
-                        onClick = { showPinDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("set_pin_btn")
-                    ) {
-                        Text(if (activeUser.withdrawPin.isEmpty()) "Set PIN" else "Change")
+                    if (activeUser.withdrawPin.isEmpty()) {
+                        OutlinedButton(
+                            onClick = { showPinDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("set_pin_btn")
+                        ) {
+                            Text("Set PIN")
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Locked 🔒",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
                     }
+                }
+
+                if (activeUser.withdrawPin.isNotEmpty()) {
+                    Text(
+                        text = "🔒 সিকিউরিটি পিন ১ বার সেট করা হয়েছে। পরিবর্তন করতে Admin এর সাহায্য নিন।",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

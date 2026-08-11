@@ -30,7 +30,7 @@ object SupabaseSyncService {
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=minimal")
+            .addHeader("Prefer", "resolution=merge-duplicates, return=minimal")
 
         return when (method.uppercase()) {
             "POST" -> builder.post(body ?: "".toRequestBody(jsonMediaType)).build()
