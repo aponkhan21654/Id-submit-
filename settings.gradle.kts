@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "BuySell Studio"
+rootProject.name = "TW SUBMIT"
 
 include(":app")

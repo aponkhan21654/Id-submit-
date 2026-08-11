@@ -122,25 +122,25 @@ fun AuthScreen(viewModel: AppViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "INTECX",
+                            text = "TW SUBMIT",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 2.sp,
-                            color = Color(0xFFF8FAFC)
+                            color = Color(0xFFFACC15)
                         )
 
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF0EA5E9).copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f))
+                            color = Color(0xFFFACC15).copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFACC15).copy(alpha = 0.5f))
                         ) {
                             Text(
-                                text = "BUYSELL",
+                                text = "SUBMIT & EARN",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF38BDF8)
+                                color = Color(0xFFFACC15)
                             )
                         }
                     }
