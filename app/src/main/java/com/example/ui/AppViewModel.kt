@@ -10,6 +10,7 @@ import com.example.data.db.UserEntity
 import com.example.data.db.WithdrawalEntity
 import com.example.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -99,7 +100,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.seedInitialDataIfNeeded()
             generateNewRandomName()
-            repository.syncFromRemote()
 
             // Auto Restore Login Session
             val savedUserId = prefs.getInt("saved_user_id", 0)
@@ -112,6 +112,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (user != null) {
                     _authState.value = if (user.isAdmin) AuthState.LoggedInAdmin(user) else AuthState.LoggedInUser(user)
                 }
+            }
+
+            // Continuous background sync loop for live updates across all clients
+            while (isActive) {
+                try {
+                    repository.syncFromRemote()
+                } catch (e: Exception) {
+                    // Ignore offline network errors
+                }
+                kotlinx.coroutines.delay(3000)
             }
         }
     }
@@ -311,8 +321,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = repository.adminConfigDao.getConfig()
             if (current != null) {
-                repository.adminConfigDao.saveConfig(current.copy(isSubmissionEnabled = enabled))
+                val updated = current.copy(isSubmissionEnabled = enabled)
+                repository.adminConfigDao.saveConfig(updated)
                 _userMessage.value = if (enabled) "Submission ON করা হয়েছে" else "Submission OFF করা হয়েছে"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushAdminConfig(updated)
+                }
             }
         }
     }
@@ -321,8 +335,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = repository.adminConfigDao.getConfig()
             if (current != null && newPassword.isNotBlank()) {
-                repository.adminConfigDao.saveConfig(current.copy(defaultPassword = newPassword.trim()))
+                val updated = current.copy(defaultPassword = newPassword.trim())
+                repository.adminConfigDao.saveConfig(updated)
                 _userMessage.value = "Password পরিবর্তন সফল হয়েছে"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushAdminConfig(updated)
+                }
             }
         }
     }
@@ -331,8 +349,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = repository.adminConfigDao.getConfig()
             if (current != null && bonus >= 0) {
-                repository.adminConfigDao.saveConfig(current.copy(referralBonus = bonus))
+                val updated = current.copy(referralBonus = bonus)
+                repository.adminConfigDao.saveConfig(updated)
                 _userMessage.value = "রেফারেল বোনাস পরিবর্তন করা হয়েছে (৳$bonus)"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushAdminConfig(updated)
+                }
             }
         }
     }
@@ -341,8 +363,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = repository.adminConfigDao.getConfig()
             if (current != null && rate > 0) {
-                repository.adminConfigDao.saveConfig(current.copy(perDollarRate = rate))
+                val updated = current.copy(perDollarRate = rate)
+                repository.adminConfigDao.saveConfig(updated)
                 _userMessage.value = "প্রতি ডলার রেট পরিবর্তন করা হয়েছে (৳$rate/$)"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushAdminConfig(updated)
+                }
             }
         }
     }
@@ -351,14 +377,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = repository.adminConfigDao.getConfig()
             if (current != null) {
-                repository.adminConfigDao.saveConfig(
-                    current.copy(
-                        defaultPassword = pass.trim().ifBlank { current.defaultPassword },
-                        referralBonus = if (refBonus >= 0) refBonus else current.referralBonus,
-                        perDollarRate = if (dollarRate > 0) dollarRate else current.perDollarRate
-                    )
+                val updated = current.copy(
+                    defaultPassword = pass.trim().ifBlank { current.defaultPassword },
+                    referralBonus = if (refBonus >= 0) refBonus else current.referralBonus,
+                    perDollarRate = if (dollarRate > 0) dollarRate else current.perDollarRate
                 )
+                repository.adminConfigDao.saveConfig(updated)
                 _userMessage.value = "Admin settings updated!"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushAdminConfig(updated)
+                }
             }
         }
     }
@@ -384,23 +412,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun addCategory(name: String, rate: Double, requiresCookie: Boolean, desc: String) {
         viewModelScope.launch {
             if (name.isNotBlank() && rate > 0) {
-                repository.categoryDao.insertCategory(
-                    CategoryEntity(
-                        name = name.trim(),
-                        rate = rate,
-                        requiresCookieHook = requiresCookie,
-                        description = desc.trim()
-                    )
+                val newCat = CategoryEntity(
+                    name = name.trim(),
+                    rate = rate,
+                    requiresCookieHook = requiresCookie,
+                    description = desc.trim()
                 )
+                val id = repository.categoryDao.insertCategory(newCat)
                 _userMessage.value = "Category যোগ করা হয়েছে"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.remote.SupabaseSyncService.pushCategory(newCat.copy(id = id.toInt()))
+                }
             }
         }
     }
 
     fun updateCategoryRate(category: CategoryEntity, newRate: Double) {
         viewModelScope.launch {
-            repository.categoryDao.updateCategory(category.copy(rate = newRate))
+            val updated = category.copy(rate = newRate)
+            repository.categoryDao.updateCategory(updated)
             _userMessage.value = "${category.name} এর Rate ৳$newRate করা হয়েছে"
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.pushCategory(updated)
+            }
         }
     }
 
@@ -408,6 +442,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.categoryDao.deleteCategory(categoryId)
             _userMessage.value = "Category মুছে ফেলা হয়েছে"
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.deleteCategory(categoryId)
+            }
         }
     }
 

@@ -31,55 +31,85 @@ class AppRepository(private val db: AppDatabase) {
         // Seed Admin Config if missing
         val config = adminConfigDao.getConfig()
         if (config == null) {
-            adminConfigDao.saveConfig(
-                AdminConfigEntity(
-                    id = 1,
-                    isSubmissionEnabled = true,
-                    defaultPassword = "aponkhan21",
-                    referralBonus = 10.0,
-                    perDollarRate = 120.0,
-                    randomFirstNames = "Tanvir,Sabbir,Karim,Rahim,Mamun,Hasan,Arif,Sumon,Shakil,Ripon",
-                    randomLastNames = "Ahmed,Khan,Hossain,Chowdhury,Islam,Roy,Das,Miah,Raman,Sarkar"
-                )
+            val defaultConfig = AdminConfigEntity(
+                id = 1,
+                isSubmissionEnabled = true,
+                defaultPassword = "aponkhan21",
+                referralBonus = 10.0,
+                perDollarRate = 120.0,
+                randomFirstNames = "Tanvir,Sabbir,Karim,Rahim,Mamun,Hasan,Arif,Sumon,Shakil,Ripon",
+                randomLastNames = "Ahmed,Khan,Hossain,Chowdhury,Islam,Roy,Das,Miah,Raman,Sarkar"
             )
+            adminConfigDao.saveConfig(defaultConfig)
+            withContext(Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.pushAdminConfig(defaultConfig)
+            }
         }
 
         // Seed Admin Account if missing
         val adminUser = userDao.getUserByEmail("syfaff2@gmail.com")
         if (adminUser == null) {
-            userDao.insertUser(
-                UserEntity(
-                    name = "Admin Control",
-                    email = "syfaff2@gmail.com",
-                    password = "aponkhan21",
-                    referCode = "ADMIN100",
-                    telegramUsername = "admin_control",
-                    balance = 0.0,
-                    isAdmin = true
-                )
+            val admin = UserEntity(
+                name = "Admin Control",
+                email = "syfaff2@gmail.com",
+                password = "aponkhan21",
+                referCode = "ADMIN100",
+                telegramUsername = "admin_control",
+                balance = 0.0,
+                isAdmin = true
             )
+            val id = userDao.insertUser(admin)
+            withContext(Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.pushUser(admin.copy(id = id.toInt()))
+            }
         }
 
         // Seed default Category if empty
         val categories = categoryDao.getCategoryById(1)
         if (categories == null) {
-            categoryDao.insertCategory(
-                CategoryEntity(
-                    name = "Facebook Account Cookie",
-                    rate = 35.0,
-                    requiresCookieHook = true,
-                    description = "Submit raw cookie containing c_user UID."
-                )
+            val defaultCat = CategoryEntity(
+                name = "Facebook Account Cookie",
+                rate = 35.0,
+                requiresCookieHook = true,
+                description = "Submit raw cookie containing c_user UID."
             )
+            val catId = categoryDao.insertCategory(defaultCat)
+            withContext(Dispatchers.IO) {
+                com.example.data.remote.SupabaseSyncService.pushCategory(defaultCat.copy(id = catId.toInt()))
+            }
         }
     }
 
     suspend fun syncFromRemote() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
+            // 1. Sync Admin Config
+            val remoteConfig = com.example.data.remote.SupabaseSyncService.fetchAdminConfig()
+            if (remoteConfig != null) {
+                adminConfigDao.saveConfig(remoteConfig)
+            }
+
+            // 2. Sync Categories
+            val remoteCategories = com.example.data.remote.SupabaseSyncService.fetchCategories()
+            if (remoteCategories.isNotEmpty()) {
+                for (cat in remoteCategories) {
+                    categoryDao.insertCategory(cat)
+                }
+            }
+
+            // 3. Sync Submissions
             val remoteSubmissions = com.example.data.remote.SupabaseSyncService.fetchSubmissions()
             if (remoteSubmissions.isNotEmpty()) {
-                submissionDao.insertSubmissions(remoteSubmissions)
+                for (sub in remoteSubmissions) {
+                    val local = submissionDao.getSubmissionById(sub.id)
+                    if (local == null) {
+                        submissionDao.insertSubmissions(listOf(sub))
+                    } else if (local.status != sub.status) {
+                        submissionDao.updateSubmissionStatus(sub.id, sub.status)
+                    }
+                }
             }
+
+            // 4. Sync Users
             val remoteUsers = com.example.data.remote.SupabaseSyncService.fetchUsers()
             for (u in remoteUsers) {
                 val local = userDao.getUserById(u.id)
@@ -89,6 +119,8 @@ class AppRepository(private val db: AppDatabase) {
                     userDao.updateUser(u)
                 }
             }
+
+            // 5. Sync Withdrawals
             val remoteWithdrawals = com.example.data.remote.SupabaseSyncService.fetchWithdrawals()
             for (w in remoteWithdrawals) {
                 val local = withdrawalDao.getWithdrawalById(w.id)

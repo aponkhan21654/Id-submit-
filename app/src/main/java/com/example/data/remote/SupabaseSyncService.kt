@@ -282,4 +282,113 @@ object SupabaseSyncService {
             Log.e("SupabaseSync", "Failed to update user balance: ${e.message}")
         }
     }
+
+    // 10. PUSH ADMIN CONFIG
+    fun pushAdminConfig(config: com.example.data.db.AdminConfigEntity) {
+        try {
+            val json = JSONObject().apply {
+                put("id", 1)
+                put("is_submission_enabled", config.isSubmissionEnabled)
+                put("default_password", config.defaultPassword)
+                put("referral_bonus", config.referralBonus)
+                put("per_dollar_rate", config.perDollarRate)
+                put("random_first_names", config.randomFirstNames)
+                put("random_last_names", config.randomLastNames)
+            }
+            val request = buildRequest("admin_config", "POST", json.toString().toRequestBody(jsonMediaType))
+            okHttpClient.newCall(request).execute().use { response ->
+                Log.d("SupabaseSync", "Push admin config code: ${response.code}")
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to push admin config: ${e.message}")
+        }
+    }
+
+    // 11. FETCH ADMIN CONFIG
+    fun fetchAdminConfig(): com.example.data.db.AdminConfigEntity? {
+        try {
+            val request = buildRequest("admin_config?id=eq.1&select=*")
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string() ?: "[]"
+                    val jsonArray = JSONArray(bodyStr)
+                    if (jsonArray.length() > 0) {
+                        val obj = jsonArray.getJSONObject(0)
+                        return com.example.data.db.AdminConfigEntity(
+                            id = 1,
+                            isSubmissionEnabled = obj.optBoolean("is_submission_enabled", true),
+                            defaultPassword = obj.optString("default_password", "aponkhan21"),
+                            referralBonus = obj.optDouble("referral_bonus", 10.0),
+                            perDollarRate = obj.optDouble("per_dollar_rate", 120.0),
+                            randomFirstNames = obj.optString("random_first_names", "Tanvir,Sabbir,Karim,Rahim,Mamun,Hasan,Arif,Sumon,Shakil,Ripon"),
+                            randomLastNames = obj.optString("random_last_names", "Ahmed,Khan,Hossain,Chowdhury,Islam,Roy,Das,Miah,Raman,Sarkar")
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to fetch admin config: ${e.message}")
+        }
+        return null
+    }
+
+    // 12. PUSH CATEGORY
+    fun pushCategory(category: com.example.data.db.CategoryEntity) {
+        try {
+            val json = JSONObject().apply {
+                if (category.id > 0) {
+                    put("id", category.id)
+                }
+                put("name", category.name)
+                put("rate", category.rate)
+                put("requires_cookie_hook", category.requiresCookieHook)
+                put("description", category.description)
+            }
+            val request = buildRequest("categories", "POST", json.toString().toRequestBody(jsonMediaType))
+            okHttpClient.newCall(request).execute().use { response ->
+                Log.d("SupabaseSync", "Push category code: ${response.code}")
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to push category: ${e.message}")
+        }
+    }
+
+    // 13. FETCH CATEGORIES
+    fun fetchCategories(): List<com.example.data.db.CategoryEntity> {
+        val list = mutableListOf<com.example.data.db.CategoryEntity>()
+        try {
+            val request = buildRequest("categories?select=*")
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string() ?: "[]"
+                    val jsonArray = JSONArray(bodyStr)
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        list.add(
+                            com.example.data.db.CategoryEntity(
+                                id = obj.optInt("id", 0),
+                                name = obj.optString("name", ""),
+                                rate = obj.optDouble("rate", 0.0),
+                                requiresCookieHook = obj.optBoolean("requires_cookie_hook", true),
+                                description = obj.optString("description", "")
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to fetch categories: ${e.message}")
+        }
+        return list
+    }
+
+    // 14. DELETE CATEGORY
+    fun deleteCategory(categoryId: Int) {
+        try {
+            val request = buildRequest("categories?id=eq.$categoryId", "DELETE")
+            okHttpClient.newCall(request).execute().close()
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to delete category: ${e.message}")
+        }
+    }
 }
