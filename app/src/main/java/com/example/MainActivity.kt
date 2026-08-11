@@ -23,7 +23,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+            MyApplicationTheme(darkTheme = isDarkTheme) {
                 MainAppEntry(viewModel)
             }
         }

@@ -86,6 +86,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _randomName = MutableStateFlow("Tanvir Ahmed")
     val randomName: StateFlow<String> = _randomName.asStateFlow()
 
+    private val prefs = application.getSharedPreferences("app_user_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _isDarkTheme = MutableStateFlow(prefs.getBoolean("is_dark_theme", true))
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
     // Status Message for Snackbars / Toasts
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
@@ -95,6 +100,55 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.seedInitialDataIfNeeded()
             generateNewRandomName()
             repository.syncFromRemote()
+
+            // Auto Restore Login Session
+            val savedUserId = prefs.getInt("saved_user_id", 0)
+            if (savedUserId > 0) {
+                var user = repository.userDao.getUserById(savedUserId)
+                if (user == null) {
+                    repository.syncFromRemote()
+                    user = repository.userDao.getUserById(savedUserId)
+                }
+                if (user != null) {
+                    _authState.value = if (user.isAdmin) AuthState.LoggedInAdmin(user) else AuthState.LoggedInUser(user)
+                }
+            }
+        }
+    }
+
+    fun toggleTheme() {
+        val next = !_isDarkTheme.value
+        _isDarkTheme.value = next
+        prefs.edit().putBoolean("is_dark_theme", next).apply()
+    }
+
+    fun setWithdrawPin(pin: String, onResult: (Boolean, String) -> Unit) {
+        val currUser = currentProfile.value
+        if (currUser == null) {
+            onResult(false, "User not logged in!")
+            return
+        }
+        if (pin.length != 4 || !pin.all { it.isDigit() }) {
+            onResult(false, "অবশ্যই ৪ সংখ্যার PIN লিখুন (যেমন: 1234)।")
+            return
+        }
+        viewModelScope.launch {
+            repository.setUserWithdrawPin(currUser.id, pin)
+            onResult(true, "Withdraw PIN সফলভাবে সেট করা হয়েছে!")
+        }
+    }
+
+    fun resetUserPinByEmail(email: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val res = repository.resetUserPinByEmail(email)
+            res.fold(
+                onSuccess = {
+                    onResult(true, "User PIN সফলভাবে Reset করা হয়েছে! User এখন নতুন PIN সেট করতে পারবে।")
+                },
+                onFailure = { ex ->
+                    onResult(false, ex.message ?: "PIN Reset ব্যর্থ হয়েছে।")
+                }
+            )
         }
     }
 
@@ -126,6 +180,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val user = repository.loginUser(email, pass)
             if (user != null) {
+                prefs.edit().putInt("saved_user_id", user.id).apply()
                 if (user.isAdmin) {
                     _authState.value = AuthState.LoggedInAdmin(user)
                     onResult(true, "Admin Login successful!")
@@ -177,6 +232,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
+        prefs.edit().remove("saved_user_id").apply()
         _authState.value = AuthState.LoggedOut
     }
 

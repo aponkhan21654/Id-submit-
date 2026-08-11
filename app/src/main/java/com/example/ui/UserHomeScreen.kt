@@ -153,18 +153,89 @@ fun UserHomeScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(8.dp)
+                    Button(
+                        onClick = { showWithdrawDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("open_withdraw_dialog_btn")
                     ) {
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Withdraw", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        if (showWithdrawDialog) {
+            WithdrawModalDialog(
+                userBalance = currentBalance,
+                perDollarRate = perDollarRate,
+                userPin = userProfile?.withdrawPin ?: user.withdrawPin,
+                onDismiss = { showWithdrawDialog = false },
+                onConfirmWithdraw = { method, details, amountTk, amountUsd ->
+                    viewModel.requestWithdrawal(method, details, amountTk, amountUsd) { success, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        if (success) {
+                            showWithdrawDialog = false
+                        }
+                    }
+                }
+            )
+        }
+
+        // Telegram Channel & Support Links Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column {
                         Text(
-                            text = "Active Status: Live",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "Official Telegram Channel",
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "সকল প্রকার আপডেট পেতে চ্যানেলে জয়েন থাকুন",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
+                }
+
+                Button(
+                    onClick = {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/TeamWithApon"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Telegram app not installed or link cannot be opened", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Join Channel", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

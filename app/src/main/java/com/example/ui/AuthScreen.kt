@@ -400,28 +400,6 @@ fun AuthScreen(viewModel: AppViewModel) {
                                     )
                                 }
                             }
-
-                            // Admin Credentials Quick Info Box
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFF0F172A).copy(alpha = 0.8f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(
-                                        text = "Admin Access Credentials:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF38BDF8)
-                                    )
-                                    Text(
-                                        text = "Gmail: syfaff2@gmail.com | Password: aponkhan21",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF94A3B8)
-                                    )
-                                }
-                            }
                         }
                     }
 

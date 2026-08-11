@@ -15,6 +15,7 @@ data class UserEntity(
     val telegramUsername: String,
     val balance: Double = 0.0,
     val isAdmin: Boolean = false,
+    val withdrawPin: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 

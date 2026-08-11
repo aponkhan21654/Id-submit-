@@ -277,6 +277,75 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                 }
             }
 
+            // Reset User Security PIN Card
+            var resetEmailInput by remember { mutableStateOf("") }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.LockReset, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = "Reset User Security PIN",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Text(
+                        text = "ব্যবহারকারীর Gmail দিয়ে Withdraw PIN রিসেট করুন। রিসেট হলে ব্যবহারকারী নতুন PIN সেট করতে পারবে।",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = resetEmailInput,
+                            onValueChange = { resetEmailInput = it },
+                            placeholder = { Text("User Gmail Address") },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("admin_reset_pin_email_input"),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                if (resetEmailInput.isBlank()) {
+                                    Toast.makeText(context, "User Gmail দিন", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                viewModel.resetUserPinByEmail(resetEmailInput) { success, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    if (success) {
+                                        resetEmailInput = ""
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.testTag("admin_reset_pin_btn")
+                        ) {
+                            Text("Reset PIN")
+                        }
+                    }
+                }
+            }
+
             // Add New Category Form
             Card(
                 modifier = Modifier.fillMaxWidth(),

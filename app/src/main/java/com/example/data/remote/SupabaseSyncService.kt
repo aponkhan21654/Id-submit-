@@ -44,7 +44,9 @@ object SupabaseSyncService {
     fun pushSubmission(submission: SubmissionEntity) {
         try {
             val json = JSONObject().apply {
-                put("id", submission.id)
+                if (submission.id > 0) {
+                    put("id", submission.id)
+                }
                 put("user_id", submission.userId)
                 put("user_name", submission.userName)
                 put("user_email", submission.userEmail)
@@ -109,7 +111,9 @@ object SupabaseSyncService {
     fun pushUser(user: UserEntity) {
         try {
             val json = JSONObject().apply {
-                put("id", user.id)
+                if (user.id > 0) {
+                    put("id", user.id)
+                }
                 put("name", user.name)
                 put("email", user.email)
                 put("password", user.password)
@@ -119,6 +123,7 @@ object SupabaseSyncService {
                 put("balance", user.balance)
                 put("is_admin", user.isAdmin)
                 put("referred_count", user.referredCount)
+                put("withdraw_pin", user.withdrawPin)
             }
 
             val request = buildRequest("users", "POST", json.toString().toRequestBody(jsonMediaType))
@@ -152,7 +157,8 @@ object SupabaseSyncService {
                                 telegramUsername = obj.optString("telegram_username", ""),
                                 balance = obj.optDouble("balance", 0.0),
                                 isAdmin = obj.optBoolean("is_admin", false),
-                                referredCount = obj.optInt("referred_count", 0)
+                                referredCount = obj.optInt("referred_count", 0),
+                                withdrawPin = obj.optString("withdraw_pin", "")
                             )
                         )
                     }
@@ -164,11 +170,26 @@ object SupabaseSyncService {
         return list
     }
 
+    // UPDATE USER PIN
+    fun updateUserPin(userId: Int, pin: String) {
+        try {
+            val json = JSONObject().apply {
+                put("withdraw_pin", pin)
+            }
+            val request = buildRequest("users?id=eq.$userId", "PATCH", json.toString().toRequestBody(jsonMediaType))
+            okHttpClient.newCall(request).execute().close()
+        } catch (e: Exception) {
+            Log.e("SupabaseSync", "Failed to update user pin: ${e.message}")
+        }
+    }
+
     // 5. PUSH WITHDRAWAL
     fun pushWithdrawal(withdrawal: WithdrawalEntity) {
         try {
             val json = JSONObject().apply {
-                put("id", withdrawal.id)
+                if (withdrawal.id > 0) {
+                    put("id", withdrawal.id)
+                }
                 put("user_id", withdrawal.userId)
                 put("user_name", withdrawal.userName)
                 put("user_email", withdrawal.userEmail)

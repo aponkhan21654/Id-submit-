@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.db.UserEntity
@@ -43,6 +45,7 @@ fun UserProfileScreen(
         WithdrawModalDialog(
             userBalance = activeUser.balance,
             perDollarRate = perDollarRate,
+            userPin = activeUser.withdrawPin,
             onDismiss = { showWithdrawDialog = false },
             onConfirmWithdraw = { method, accountDetails, amountTk, amountUsd ->
                 if (method == "Bkash" && amountTk < 50) {
@@ -182,6 +185,171 @@ fun UserProfileScreen(
             }
         }
 
+        var showPinDialog by remember { mutableStateOf(false) }
+        var pinInput by remember { mutableStateOf("") }
+        var pinErrorMsg by remember { mutableStateOf<String?>(null) }
+        val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+
+        if (showPinDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showPinDialog = false
+                    pinErrorMsg = null
+                    pinInput = ""
+                },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(if (activeUser.withdrawPin.isEmpty()) "Set 4-Digit Withdraw PIN" else "Update 4-Digit Withdraw PIN")
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "উইথড্র করার সময় এই ৪ ডিজিটের সিকিউরিটি পিন লাগবে। মনে রাখার মতো ৪ ডিজিট পিন সেট করুন।",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = pinInput,
+                            onValueChange = { if (it.length <= 4 && it.all { ch -> ch.isDigit() }) pinInput = it },
+                            placeholder = { Text("4 Digit PIN (e.g. 1234)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.NumberPassword
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("pin_dialog_input")
+                        )
+                        pinErrorMsg?.let { err ->
+                            Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.setWithdrawPin(pinInput) { success, msg ->
+                                if (success) {
+                                    showPinDialog = false
+                                    pinInput = ""
+                                    pinErrorMsg = null
+                                } else {
+                                    pinErrorMsg = msg
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Save PIN")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPinDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Settings Card (Theme Switcher & Withdraw PIN)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "App Settings & Security",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+                // Dark / Light Mode Switcher
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isDarkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(
+                                text = "Theme Mode",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (isDarkTheme) "Dark Mode" else "Light Mode",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = isDarkTheme,
+                        onCheckedChange = { viewModel.toggleTheme() },
+                        modifier = Modifier.testTag("theme_switch")
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+                // 4-Digit Withdraw Security PIN Setting
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (activeUser.withdrawPin.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                        Column {
+                            Text(
+                                text = "Withdraw Security PIN",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (activeUser.withdrawPin.isNotEmpty()) "Status: 4-Digit PIN Set ✓" else "Status: PIN Not Set ⚠️",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (activeUser.withdrawPin.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showPinDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("set_pin_btn")
+                    ) {
+                        Text(if (activeUser.withdrawPin.isEmpty()) "Set PIN" else "Change")
+                    }
+                }
+            }
+        }
+
         // Information Details Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -237,19 +405,44 @@ fun UserProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Help & Support",
+                    text = "Help & Community Channel",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
 
+                Button(
+                    onClick = {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/TeamWithApon"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Telegram app not installed or link cannot be opened", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().testTag("telegram_channel_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Join Telegram Channel (@TeamWithApon)", fontWeight = FontWeight.Bold)
+                }
+
                 OutlinedButton(
-                    onClick = { /* Help / Telegram link */ },
-                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/aponkhan21654"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Telegram app not installed or link cannot be opened", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().testTag("telegram_support_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.SupportAgent, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Telegram Admin Support")
+                    Text("Telegram Admin Support (@aponkhan21654)")
                 }
             }
         }

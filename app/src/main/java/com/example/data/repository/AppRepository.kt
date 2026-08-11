@@ -147,11 +147,56 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     suspend fun loginUser(email: String, pass: String): UserEntity? {
-        val user = userDao.getUserByEmail(email.trim())
-        if (user != null && user.password == pass.trim()) {
+        val cleanEmail = email.trim()
+        val cleanPass = pass.trim()
+        var user = userDao.getUserByEmail(cleanEmail)
+
+        if (user == null) {
+            // Attempt remote sync if app data was cleared
+            syncFromRemote()
+            user = userDao.getUserByEmail(cleanEmail)
+        }
+
+        if (user != null && user.password == cleanPass) {
             return user
         }
         return null
+    }
+
+    suspend fun setUserWithdrawPin(userId: Int, pin: String) {
+        userDao.updateUserPin(userId, pin)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.example.data.remote.SupabaseSyncService.updateUserPin(userId, pin)
+        }
+    }
+
+    suspend fun resetUserPinByEmail(email: String): Result<Boolean> {
+        return try {
+            val cleanEmail = email.trim()
+            val user = userDao.getUserByEmail(cleanEmail)
+            if (user != null) {
+                userDao.updateUserPin(user.id, "")
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    com.example.data.remote.SupabaseSyncService.updateUserPin(user.id, "")
+                }
+                Result.success(true)
+            } else {
+                // Try sync and re-check
+                syncFromRemote()
+                val userRemote = userDao.getUserByEmail(cleanEmail)
+                if (userRemote != null) {
+                    userDao.updateUserPin(userRemote.id, "")
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        com.example.data.remote.SupabaseSyncService.updateUserPin(userRemote.id, "")
+                    }
+                    Result.success(true)
+                } else {
+                    Result.failure(Exception("এই Gmail দিয়ে কোনো User পাওয়া যায়নি।"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun getUserFlow(userId: Int): Flow<UserEntity?> {
@@ -259,11 +304,15 @@ class AppRepository(private val db: AppDatabase) {
             return Result.failure(Exception("Cookie তে c_user UID পাওয়া যায়নি। সঠিক cookie দিন।"))
         }
 
-        submissionDao.insertSubmissions(submissionsList)
+        val insertedIds = submissionDao.insertSubmissions(submissionsList)
+        val updatedSubmissionsList = submissionsList.mapIndexed { index, sub ->
+            val genId = insertedIds.getOrNull(index)?.toInt() ?: 0
+            sub.copy(id = genId)
+        }
 
         // Sync submissions to Supabase
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            for (sub in submissionsList) {
+            for (sub in updatedSubmissionsList) {
                 com.example.data.remote.SupabaseSyncService.pushSubmission(sub)
             }
         }

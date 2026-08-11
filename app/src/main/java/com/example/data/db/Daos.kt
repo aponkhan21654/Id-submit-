@@ -29,6 +29,9 @@ interface UserDao {
     @Query("UPDATE users SET referredCount = referredCount + 1 WHERE id = :userId")
     suspend fun incrementReferredCount(userId: Int)
 
+    @Query("UPDATE users SET withdrawPin = :pin WHERE id = :userId")
+    suspend fun updateUserPin(userId: Int, pin: String)
+
     @Query("SELECT * FROM users ORDER BY id DESC")
     fun getAllUsersFlow(): Flow<List<UserEntity>>
 }
@@ -69,7 +72,7 @@ interface SubmissionDao {
     fun getSubmissionsForCategoryAndDateFlow(categoryId: Int, dateString: String): Flow<List<SubmissionEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSubmissions(submissions: List<SubmissionEntity>)
+    suspend fun insertSubmissions(submissions: List<SubmissionEntity>): List<Long>
 
     @Query("UPDATE submissions SET status = :status WHERE id = :id")
     suspend fun updateSubmissionStatus(id: Int, status: String)

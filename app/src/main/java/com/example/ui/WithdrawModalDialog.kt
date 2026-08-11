@@ -26,6 +26,7 @@ import com.example.ui.theme.BkashPink
 fun WithdrawModalDialog(
     userBalance: Double,
     perDollarRate: Double,
+    userPin: String,
     onDismiss: () -> Unit,
     onConfirmWithdraw: (method: String, accountDetails: String, amountTk: Double, amountUsd: Double) -> Unit
 ) {
@@ -35,6 +36,9 @@ fun WithdrawModalDialog(
 
     var binancePayId by remember { mutableStateOf("") }
     var binanceAmountUsd by remember { mutableStateOf("") }
+
+    var enteredPin by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val computedBinanceTk = (binanceAmountUsd.toDoubleOrNull() ?: 0.0) * perDollarRate
 
@@ -190,16 +194,82 @@ fun WithdrawModalDialog(
                         }
                     }
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+                // 4-Digit Security PIN Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "4-Digit Security PIN (উইথড্র সিকিউরিটি পিন):",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedTextField(
+                        value = enteredPin,
+                        onValueChange = { if (it.length <= 4 && it.all { ch -> ch.isDigit() }) enteredPin = it },
+                        placeholder = { Text("4 Digit Security PIN") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("withdraw_pin_input")
+                    )
+                    if (userPin.isEmpty()) {
+                        Text(
+                            text = "⚠️ আপনি এখনো PIN সেট করেননি! Profile > Settings থেকে আগে 4-Digit PIN সেট করুন।",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    errorMessage?.let { err ->
+                        Text(
+                            text = err,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
+                    if (userPin.isEmpty()) {
+                        errorMessage = "প্রথমে Profile Settings থেকে 4-Digit Security PIN সেট করে নিন।"
+                        return@Button
+                    }
+                    if (enteredPin != userPin) {
+                        errorMessage = "ভুল Security PIN দিয়েছেন! সঠিক ৪ ডিজিটের পিন লিখুন।"
+                        return@Button
+                    }
                     if (selectedMethod == "Bkash") {
                         val amount = bkashAmountTk.toDoubleOrNull() ?: 0.0
+                        if (amount < 50.0) {
+                            errorMessage = "সর্বনিম্ন উইথড্র পরিমাণ ৳৫০।"
+                            return@Button
+                        }
+                        if (amount > userBalance) {
+                            errorMessage = "আপনার একাউন্টে পর্যাপ্ত ব্যালেন্স নেই।"
+                            return@Button
+                        }
+                        if (bkashNumber.isBlank()) {
+                            errorMessage = "বিকাশ মোবাইল নম্বর দিন।"
+                            return@Button
+                        }
                         onConfirmWithdraw("Bkash", bkashNumber, amount, 0.0)
                     } else {
                         val amountUsd = binanceAmountUsd.toDoubleOrNull() ?: 0.0
+                        if (amountUsd < 20.0) {
+                            errorMessage = "সর্বনিম্ন উইথড্র পরিমাণ $20 USDT।"
+                            return@Button
+                        }
+                        if (computedBinanceTk > userBalance) {
+                            errorMessage = "আপনার একাউন্টে পর্যাপ্ত ব্যালেন্স নেই।"
+                            return@Button
+                        }
+                        if (binancePayId.isBlank()) {
+                            errorMessage = "Binance Pay ID / USDT Address দিন।"
+                            return@Button
+                        }
                         onConfirmWithdraw("Binance", binancePayId, computedBinanceTk, amountUsd)
                     }
                 },

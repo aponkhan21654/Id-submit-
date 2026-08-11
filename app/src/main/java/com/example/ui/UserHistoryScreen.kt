@@ -324,10 +324,6 @@ fun UserHistoryScreen(viewModel: AppViewModel) {
                                 }
                             }
                         }
-
-                        items(itemsOnDate, key = { it.id }) { item ->
-                            SubmissionHistoryItemCard(item)
-                        }
                     }
                 }
             }
