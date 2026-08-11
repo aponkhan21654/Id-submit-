@@ -77,7 +77,7 @@ fun UserHomeScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Balance & Welcome Card with Withdraw Button
+        // Balance & Welcome Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -148,130 +148,24 @@ fun UserHomeScreen(
                 ) {
                     Text(
                         text = "ডলার রেট: $1 = ৳${"%.1f".format(perDollarRate)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
 
-                    Button(
-                        onClick = { showWithdrawDialog = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("withdraw_trigger_btn")
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Payments,
-                            contentDescription = "Withdraw",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Withdraw (উইথড্র)", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Referral Code Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CardGiftcard,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                         Text(
-                            text = "আপনার রেফারেল কোড",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                        Text(
-                            text = "Total Referrals: $userReferredCount",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = "Active Status: Live",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Refer Code",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = userReferCode.ifBlank { "N/A" },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                if (userReferCode.isNotBlank()) {
-                                    clipboardManager.setText(AnnotatedString(userReferCode))
-                                    Toast.makeText(context, "রেফারেল কোড কপি হয়েছে: $userReferCode", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy Refer Code",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Copy Code", fontSize = 12.sp)
-                        }
-                    }
-                }
-
-                Text(
-                    text = "💡 আপনার এই রেফারেল কোড ব্যবহার করে কেউ নতুন account খুললে আপনি সাথে সাথে ৳${"%.0f".format(referralBonus)} বোনাস পাবেন!",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
 
@@ -570,22 +464,55 @@ fun UserHomeScreen(
                     }
                 }
 
-                // Cookie input box
-                OutlinedTextField(
-                    value = rawCookieText,
-                    onValueChange = { rawCookieText = it },
-                    label = { Text("Paste Raw Cookie String") },
-                    placeholder = {
+                // Cookie input box (Spacious & Clean)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            "e.g. user datr=Ebl3...; c_user=61593203065886; xs=17... \n\n(একাধিক cookie দিলে প্রতি লাইনে ১টি করে দিন)"
+                            text = "Paste Account Cookies / String List",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp, max = 220.dp)
-                        .testTag("cookie_text_input"),
-                    enabled = isSubmissionEnabled
-                )
+
+                        TextButton(
+                            onClick = {
+                                val clipText = clipboardManager.getText()?.text
+                                if (!clipText.isNullOrBlank()) {
+                                    rawCookieText = clipText
+                                    Toast.makeText(context, "Clipboard content pasted!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Paste from Clipboard", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = rawCookieText,
+                        onValueChange = { rawCookieText = it },
+                        label = { Text("Paste Cookie Strings (1 per line)") },
+                        placeholder = {
+                            Text(
+                                "e.g. datr=Ebl3...; c_user=61593203065886; xs=17...\n\n(একাধিক Cookie পেস্ট করলে প্রতি লাইনে ১টি করে দিন। পর্যাপ্ত জায়গা দেওয়া হয়েছে।)"
+                            )
+                        },
+                        minLines = 6,
+                        maxLines = 12,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("cookie_text_input"),
+                        enabled = isSubmissionEnabled,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
 
                 Button(
                     onClick = {
@@ -637,221 +564,4 @@ fun UserHomeScreen(
             }
         }
     }
-
-    // WITHDRAWAL MODAL DIALOG
-    if (showWithdrawDialog) {
-        WithdrawalDialog(
-            userBalance = currentBalance,
-            perDollarRate = perDollarRate,
-            onDismiss = { showWithdrawDialog = false },
-            onConfirmWithdraw = { method, accountDetails, amountTk, amountUsd ->
-                viewModel.requestWithdrawal(
-                    method = method,
-                    accountDetails = accountDetails,
-                    amountTk = amountTk,
-                    amountUsd = amountUsd
-                ) { success, msg ->
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    if (success) {
-                        showWithdrawDialog = false
-                    }
-                }
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WithdrawalDialog(
-    userBalance: Double,
-    perDollarRate: Double,
-    onDismiss: () -> Unit,
-    onConfirmWithdraw: (method: String, accountDetails: String, amountTk: Double, amountUsd: Double) -> Unit
-) {
-    var selectedMethod by remember { mutableStateOf("Bkash") } // Bkash or Binance
-    var bkashNumber by remember { mutableStateOf("") }
-    var bkashAmountTk by remember { mutableStateOf("") }
-
-    var binancePayId by remember { mutableStateOf("") }
-    var binanceAmountUsd by remember { mutableStateOf("") }
-
-    val computedBinanceTk = (binanceAmountUsd.toDoubleOrNull() ?: 0.0) * perDollarRate
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text("Withdraw Request (টাকা উত্তোলন)")
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("আপনার বর্তমান ব্যালেন্স:", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "৳${"%.2f".format(userBalance)}",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-                Text("উইথড্র মাধ্যম নির্বাচন করুন:", fontWeight = FontWeight.Bold)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Bkash Option Card
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedMethod = "Bkash" },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedMethod == "Bkash") BkashPink.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                        border = if (selectedMethod == "Bkash") androidx.compose.foundation.BorderStroke(2.dp, BkashPink) else null,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = BkashPink)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Bkash", fontWeight = FontWeight.Bold, color = BkashPink)
-                            Text("Min: ৳৫০", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-
-                    // Binance Option Card
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedMethod = "Binance" },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedMethod == "Binance") BinanceYellow.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                        border = if (selectedMethod == "Binance") androidx.compose.foundation.BorderStroke(2.dp, BinanceYellow) else null,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.CurrencyExchange, contentDescription = null, tint = BinanceYellow)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Binance", fontWeight = FontWeight.Bold, color = Color(0xFFB78103))
-                            Text("Min: 20$ (USDT)", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                if (selectedMethod == "Bkash") {
-                    OutlinedTextField(
-                        value = bkashNumber,
-                        onValueChange = { bkashNumber = it },
-                        label = { Text("বিকাশ মোবাইল নম্বর") },
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = bkashAmountTk,
-                        onValueChange = { bkashAmountTk = it },
-                        label = { Text("উইথড্র করার পরিমাণ (টাকায়)") },
-                        placeholder = { Text("সর্বনিম্ন ৳৫০") },
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = binancePayId,
-                        onValueChange = { binancePayId = it },
-                        label = { Text("Binance Pay ID / USDT Address") },
-                        leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = binanceAmountUsd,
-                        onValueChange = { binanceAmountUsd = it },
-                        label = { Text("উইথড্র করার পরিমাণ (USDT/Dollar)") },
-                        placeholder = { Text("সর্বনিম্ন $20") },
-                        leadingIcon = { Icon(Icons.Default.MonetizationOn, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                "প্রতি ডলার রেট: ৳${"%.1f".format(perDollarRate)}",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Text(
-                                "মোট কাটা যাবে: ৳${"%.2f".format(computedBinanceTk)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (selectedMethod == "Bkash") {
-                        val amount = bkashAmountTk.toDoubleOrNull() ?: 0.0
-                        onConfirmWithdraw("Bkash", bkashNumber, amount, 0.0)
-                    } else {
-                        val amountUsd = binanceAmountUsd.toDoubleOrNull() ?: 0.0
-                        onConfirmWithdraw("Binance", binancePayId, computedBinanceTk, amountUsd)
-                    }
-                },
-                modifier = Modifier.testTag("confirm_withdraw_btn")
-            ) {
-                Text("Confirm Withdraw")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("বাতিল")
-            }
-        }
-    )
 }

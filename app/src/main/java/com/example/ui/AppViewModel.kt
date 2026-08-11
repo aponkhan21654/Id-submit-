@@ -94,6 +94,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.seedInitialDataIfNeeded()
             generateNewRandomName()
+            repository.syncFromRemote()
+        }
+    }
+
+    fun refreshRemoteData() {
+        viewModelScope.launch {
+            repository.syncFromRemote()
         }
     }
 

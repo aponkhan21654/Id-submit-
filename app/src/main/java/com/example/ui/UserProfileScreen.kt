@@ -35,7 +35,38 @@ fun UserProfileScreen(
 
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    val referralBonus = adminConfig?.referralBonus ?: 10.0
+    val perDollarRate = adminConfig?.perDollarRate ?: 120.0
+
+    var showWithdrawDialog by remember { mutableStateOf(false) }
+
+    if (showWithdrawDialog) {
+        WithdrawModalDialog(
+            userBalance = activeUser.balance,
+            perDollarRate = perDollarRate,
+            onDismiss = { showWithdrawDialog = false },
+            onConfirmWithdraw = { method, accountDetails, amountTk, amountUsd ->
+                if (method == "Bkash" && amountTk < 50) {
+                    Toast.makeText(context, "বিকাশে সর্বনিম্ন উইথড্র পরিমাণ ৳৫০", Toast.LENGTH_SHORT).show()
+                } else if (method == "Binance" && amountUsd < 20) {
+                    Toast.makeText(context, "Binance এ সর্বনিম্ন উইথড্র পরিমাণ 20$", Toast.LENGTH_SHORT).show()
+                } else if (amountTk > activeUser.balance) {
+                    Toast.makeText(context, "আপনার একাউন্টে পর্যাপ্ত ব্যালেন্স নেই!", Toast.LENGTH_SHORT).show()
+                } else {
+                    viewModel.requestWithdrawal(
+                        method = method,
+                        accountDetails = accountDetails,
+                        amountTk = amountTk,
+                        amountUsd = amountUsd
+                    ) { success, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        if (success) {
+                            showWithdrawDialog = false
+                        }
+                    }
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -93,154 +124,55 @@ fun UserProfileScreen(
             }
         }
 
-        // Dedicated Referral Program Card (With Copy Option in Profile)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CardGiftcard,
-                            contentDescription = "Referral",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "আপনার রেফারেল কোড",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            text = "Referred: ${activeUser.referredCount}",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Referral Code",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = activeUser.referCode.ifBlank { "N/A" },
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                if (activeUser.referCode.isNotBlank()) {
-                                    clipboardManager.setText(AnnotatedString(activeUser.referCode))
-                                    Toast.makeText(context, "রেফারেল কোড কপি হয়েছে: ${activeUser.referCode}", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier.testTag("copy_refer_code_profile_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy Refer Code",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Copy Code", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MonetizationOn,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "বন্ধুকে রেফার করলেই পাবেন ৳${"%.0f".format(referralBonus)} রেফারেল বোনাস!",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        // Account Balance Card
+        // Account Balance Card & Withdraw Action Button
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             ),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
                     text = "Total Account Balance",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "৳ ${"%.2f".format(activeUser.balance)}",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+
+                Button(
+                    onClick = { showWithdrawDialog = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("withdraw_trigger_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Payments,
+                        contentDescription = "Withdraw",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Withdraw Money (টাকা উত্তোলন)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
             }
         }
 
@@ -266,15 +198,9 @@ fun UserProfileScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 
                 ProfileDetailRow(
-                    icon = Icons.Default.CardGiftcard,
-                    label = "Refer Code",
-                    value = activeUser.referCode
-                )
-
-                ProfileDetailRow(
-                    icon = Icons.Default.GroupAdd,
-                    label = "Total Referred Users",
-                    value = "${activeUser.referredCount} Users"
+                    icon = Icons.Default.Email,
+                    label = "Gmail Address",
+                    value = activeUser.email
                 )
 
                 ProfileDetailRow(

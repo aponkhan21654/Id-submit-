@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import com.example.data.db.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
 import java.util.*
@@ -73,6 +74,35 @@ class AppRepository(private val db: AppDatabase) {
         }
     }
 
+    suspend fun syncFromRemote() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val remoteSubmissions = com.example.data.remote.SupabaseSyncService.fetchSubmissions()
+            if (remoteSubmissions.isNotEmpty()) {
+                submissionDao.insertSubmissions(remoteSubmissions)
+            }
+            val remoteUsers = com.example.data.remote.SupabaseSyncService.fetchUsers()
+            for (u in remoteUsers) {
+                val local = userDao.getUserById(u.id)
+                if (local == null) {
+                    userDao.insertUser(u)
+                } else {
+                    userDao.updateUser(u)
+                }
+            }
+            val remoteWithdrawals = com.example.data.remote.SupabaseSyncService.fetchWithdrawals()
+            for (w in remoteWithdrawals) {
+                val local = withdrawalDao.getWithdrawalById(w.id)
+                if (local == null) {
+                    withdrawalDao.insertWithdrawal(w)
+                } else {
+                    withdrawalDao.updateWithdrawalStatus(w.id, w.status)
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore offline errors
+        }
+    }
+
     suspend fun registerUser(user: UserEntity, usedReferCodeInput: String): Result<Long> {
         return try {
             val existing = userDao.getUserByEmail(user.email)
@@ -92,6 +122,11 @@ class AppRepository(private val db: AppDatabase) {
             )
 
             val id = userDao.insertUser(finalUser)
+
+            // Sync to Supabase
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                com.example.data.remote.SupabaseSyncService.pushUser(finalUser.copy(id = id.toInt()))
+            }
 
             // If a valid referral code was entered, reward referrer
             val cleanUsedCode = usedReferCodeInput.trim().uppercase()
@@ -225,6 +260,14 @@ class AppRepository(private val db: AppDatabase) {
         }
 
         submissionDao.insertSubmissions(submissionsList)
+
+        // Sync submissions to Supabase
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            for (sub in submissionsList) {
+                com.example.data.remote.SupabaseSyncService.pushSubmission(sub)
+            }
+        }
+
         return Result.success(submissionsList.size)
     }
 
@@ -256,19 +299,26 @@ class AppRepository(private val db: AppDatabase) {
         userDao.addToBalance(userId, -amountTk)
 
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        withdrawalDao.insertWithdrawal(
-            WithdrawalEntity(
-                userId = userId,
-                userName = userName,
-                userEmail = userEmail,
-                method = method,
-                accountDetails = accountDetails,
-                amountTk = amountTk,
-                amountUsd = amountUsd,
-                status = "PENDING",
-                dateString = dateStr
-            )
+        val newW = WithdrawalEntity(
+            userId = userId,
+            userName = userName,
+            userEmail = userEmail,
+            method = method,
+            accountDetails = accountDetails,
+            amountTk = amountTk,
+            amountUsd = amountUsd,
+            status = "PENDING",
+            dateString = dateStr
         )
+        val wId = withdrawalDao.insertWithdrawal(newW)
+
+        // Sync withdrawal and balance update to Supabase
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.example.data.remote.SupabaseSyncService.pushWithdrawal(newW.copy(id = wId.toInt()))
+            userDao.getUserById(userId)?.let { updatedUser ->
+                com.example.data.remote.SupabaseSyncService.updateUserBalance(userId, updatedUser.balance)
+            }
+        }
 
         return Result.success(true)
     }
@@ -285,6 +335,15 @@ class AppRepository(private val db: AppDatabase) {
         }
 
         withdrawalDao.updateWithdrawalStatus(withdrawalId, newStatus)
+
+        // Sync withdrawal status & user balance to Supabase
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.example.data.remote.SupabaseSyncService.updateWithdrawalStatus(withdrawalId, newStatus)
+            userDao.getUserById(w.userId)?.let { updatedUser ->
+                com.example.data.remote.SupabaseSyncService.updateUserBalance(w.userId, updatedUser.balance)
+            }
+        }
+
         return Result.success(true)
     }
 
@@ -303,13 +362,23 @@ class AppRepository(private val db: AppDatabase) {
         var rejectCount = 0
 
         for (sub in pendingSubmissions) {
-            if (successUidsSet.contains(sub.uid)) {
+            val isSuccess = successUidsSet.contains(sub.uid)
+            val newStatus = if (isSuccess) "SUCCESS" else "REJECTED"
+
+            if (isSuccess) {
                 submissionDao.updateSubmissionStatus(sub.id, "SUCCESS")
                 userDao.addToBalance(sub.userId, sub.submittedRate)
                 successCount++
             } else {
                 submissionDao.updateSubmissionStatus(sub.id, "REJECTED")
                 rejectCount++
+            }
+
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                com.example.data.remote.SupabaseSyncService.updateSubmissionStatus(sub.id, newStatus)
+                userDao.getUserById(sub.userId)?.let { updatedUser ->
+                    com.example.data.remote.SupabaseSyncService.updateUserBalance(sub.userId, updatedUser.balance)
+                }
             }
         }
 

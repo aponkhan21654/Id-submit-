@@ -606,21 +606,75 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Formatted Output (UID/Password/Cookie)") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
+                            minLines = 8,
+                            maxLines = 16,
+                            modifier = Modifier.fillMaxWidth()
                         )
 
-                        Button(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString(exportedText))
-                                Toast.makeText(context, "Export text copied to Clipboard!", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Copy All Sheet Lines")
+                            Button(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(exportedText))
+                                    Toast.makeText(context, "Export text copied to Clipboard!", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Copy Sheet", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    try {
+                                        val cleanCatName = selectedExportCategory?.name?.replace(" ", "_") ?: "Export"
+                                        val cleanDate = selectedExportDate.replace("-", "_")
+                                        val fileName = "Sheet_${cleanCatName}_$cleanDate.xlsx"
+                                        val file = java.io.File(context.cacheDir, fileName)
+
+                                        // Formatted Excel content
+                                        val excelContent = exportedText.lines().joinToString("\n") { line ->
+                                            if (line.contains("/")) {
+                                                line.replace("/", "\t")
+                                            } else line
+                                        }
+
+                                        file.writeText(excelContent)
+
+                                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file
+                                        )
+
+                                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                            putExtra(android.content.Intent.EXTRA_SUBJECT, fileName)
+                                            putExtra(android.content.Intent.EXTRA_TEXT, excelContent)
+                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Download / Save Excel Sheet (.xlsx)"))
+                                        Toast.makeText(context, "Downloading Excel Sheet: $fileName", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(android.content.Intent.EXTRA_TEXT, exportedText)
+                                        }
+                                        context.startActivity(android.content.Intent.createChooser(fallbackIntent, "Download / Share Sheet"))
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Download Sheet", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -718,11 +772,11 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                     OutlinedTextField(
                         value = successUidsInput,
                         onValueChange = { successUidsInput = it },
-                        label = { Text("Paste Success UIDs List") },
+                        label = { Text("Paste Success UIDs List (1 per line)") },
                         placeholder = { Text("e.g. 61593203065886\n61593203065887\n61593203065888") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 140.dp, max = 240.dp)
+                        minLines = 8,
+                        maxLines = 16,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     Button(

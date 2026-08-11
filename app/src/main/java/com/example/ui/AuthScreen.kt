@@ -503,27 +503,6 @@ fun AuthScreen(viewModel: AppViewModel) {
                                 )
                             }
 
-                            // Refer Code
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Refer Code (Optional)", style = MaterialTheme.typography.labelMedium, color = Color(0xFFE2E8F0))
-                                OutlinedTextField(
-                                    value = regReferCode,
-                                    onValueChange = { regReferCode = it },
-                                    placeholder = { Text("Enter friend's refer code", color = Color(0xFF64748B)) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(14.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color(0xFF0F172A),
-                                        unfocusedContainerColor = Color(0xFF0F172A).copy(alpha = 0.7f),
-                                        focusedBorderColor = Color(0xFF38BDF8),
-                                        unfocusedBorderColor = Color(0xFF334155),
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
-                                    ),
-                                    modifier = Modifier.fillMaxWidth().testTag("reg_refer_input")
-                                )
-                            }
-
                             // Telegram Username
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("Telegram Username", style = MaterialTheme.typography.labelMedium, color = Color(0xFFE2E8F0))
@@ -579,7 +558,7 @@ fun AuthScreen(viewModel: AppViewModel) {
                                         name = regName,
                                         email = regEmail,
                                         pass = regPassword,
-                                        usedReferCode = regReferCode,
+                                        usedReferCode = "",
                                         telegram = regTelegram
                                     ) { success, msg ->
                                         isLoading = false
