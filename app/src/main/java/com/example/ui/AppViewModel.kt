@@ -250,6 +250,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         category: CategoryEntity,
         assignedPassword: String,
         rawCookieText: String,
+        submissionHookMode: String = "COOKIE",
         onResult: (Boolean, String) -> Unit
     ) {
         viewModelScope.launch {
@@ -266,12 +267,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 userEmail = user.email,
                 category = category,
                 assignedPassword = assignedPassword,
-                rawInput = rawCookieText
+                rawInput = rawCookieText,
+                submissionHookMode = submissionHookMode
             )
 
             res.fold(
                 onSuccess = { count ->
-                    onResult(true, "$count টি account/cookie সফলভাবে submit হয়েছে।")
+                    onResult(true, "$count টি account সফলভাবে submit হয়েছে।")
                 },
                 onFailure = { ex ->
                     onResult(false, ex.message ?: "Submission ব্যর্থ হয়েছে।")

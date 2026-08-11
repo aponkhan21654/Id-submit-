@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -59,6 +60,15 @@ fun UserHomeScreen(
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
     var rawCookieText by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
+
+    // Submission Hook Mode derived automatically from selected category (0: Cookie Hook, 1: UID+Pass+2FA Hook)
+    val submissionHookMode = if (selectedCategory?.requiresCookieHook == false) 1 else 0
+
+    var inputUid by remember { mutableStateOf("") }
+    var inputPassword by remember { mutableStateOf(activeAdminPassword) }
+    var input2Fa by remember { mutableStateOf("") }
+    var uidPass2faSubTab by remember { mutableIntStateOf(0) } // 0: Single Form, 1: Bulk List
+    var bulkUidPass2faText by remember { mutableStateOf("") }
 
     // Withdrawal Dialog State
     var showWithdrawDialog by remember { mutableStateOf(false) }
@@ -227,40 +237,92 @@ fun UserHomeScreen(
             )
         }
 
-        // 2. Submit Account Cookie Card
+        // 2. Submit Account Panel (Sleek UI with Cookie & UID/Pass/2FA Hooks)
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Header with Status Indicator
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.UploadFile,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Submit Account Cookie",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Submit Account",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = if (submissionHookMode == 0) "Cookie Hook Mode" else "UID + Pass + 2FA Hook Mode",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Active Status Chip
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isSubmissionEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSubmissionEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                            )
+                            Text(
+                                text = if (isSubmissionEnabled) "ACTIVE" else "CLOSED",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSubmissionEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
                 }
 
                 if (!isSubmissionEnabled) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -278,105 +340,256 @@ fun UserHomeScreen(
                     }
                 }
 
-                // Category Dropdown
-                Text(
-                    text = "Select Account Category",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = categoryDropdownExpanded,
-                    onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategory?.let { "${it.name} — ৳${it.rate}/acc" } ?: "Select Category",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                            .testTag("category_dropdown")
+                // Category Selection (Category determines Hook Mode automatically)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Select Account Category",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    ExposedDropdownMenu(
+                    ExposedDropdownMenuBox(
                         expanded = categoryDropdownExpanded,
-                        onDismissRequest = { categoryDropdownExpanded = false }
+                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        categories.forEach { cat ->
-                            DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(cat.name, fontWeight = FontWeight.SemiBold)
-                                        Text("৳${cat.rate}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                    }
-                                },
-                                onClick = {
-                                    selectedCategory = cat
-                                    categoryDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Cookie input box (Spacious & Clean, Fixed Paste Button)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Paste Account Cookies / String List",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
+                        OutlinedTextField(
+                            value = selectedCategory?.let { "${it.name} — ৳${it.rate}/acc" } ?: "Select Category",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                                .testTag("category_dropdown"),
+                            shape = RoundedCornerShape(12.dp)
                         )
 
-                        FilledTonalButton(
-                            onClick = {
-                                val clipText = clipboardManager.getText()?.text
-                                if (!clipText.isNullOrBlank()) {
-                                    rawCookieText = clipText
-                                    Toast.makeText(context, "Clipboard content pasted!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            shape = RoundedCornerShape(8.dp)
+                        ExposedDropdownMenu(
+                            expanded = categoryDropdownExpanded,
+                            onDismissRequest = { categoryDropdownExpanded = false }
                         ) {
-                            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Paste Clipboard", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(cat.name, fontWeight = FontWeight.SemiBold)
+                                                Text(
+                                                    text = if (cat.requiresCookieHook) "Hook: Cookie String" else "Hook: UID + Pass + 2FA",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    "৳${cat.rate}",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCategory = cat
+                                        categoryDropdownExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
-
-                    OutlinedTextField(
-                        value = rawCookieText,
-                        onValueChange = { rawCookieText = it },
-                        label = { Text("Paste Cookie Strings (1 per line)") },
-                        placeholder = {
-                            Text(
-                                "e.g. datr=Ebl3...; c_user=61593203065886; xs=17...\n\n(একাধিক Cookie পেস্ট করলে প্রতি লাইনে ১টি করে দিন। পর্যাপ্ত জায়গা দেওয়া হয়েছে।)"
-                            )
-                        },
-                        minLines = 6,
-                        maxLines = 12,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("cookie_text_input"),
-                        enabled = isSubmissionEnabled,
-                        shape = RoundedCornerShape(12.dp)
-                    )
                 }
 
+                // --- DYNAMIC INPUT FORM BASED ON SELECTED HOOK ---
+                if (submissionHookMode == 0) {
+                    // COOKIE HOOK FORM
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Paste Cookie Strings (1 per line)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            FilledTonalButton(
+                                onClick = {
+                                    val clipText = clipboardManager.getText()?.text
+                                    if (!clipText.isNullOrBlank()) {
+                                        rawCookieText = clipText
+                                        Toast.makeText(context, "Clipboard content pasted!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Paste Clipboard", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = rawCookieText,
+                            onValueChange = { rawCookieText = it },
+                            placeholder = {
+                                Text(
+                                    "e.g. datr=Ebl3...; c_user=61593203065886; xs=17...\n\n(একাধিক Cookie পেস্ট করলে প্রতি লাইনে ১টি করে দিন।)"
+                                )
+                            },
+                            minLines = 5,
+                            maxLines = 10,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("cookie_text_input"),
+                            enabled = isSubmissionEnabled,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                } else {
+                    // UID + PASS + 2FA HOOK FORM
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "UID, Password & 2FA Input",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            // Sub Tab switch: Single vs Bulk
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                FilterChip(
+                                    selected = uidPass2faSubTab == 0,
+                                    onClick = { uidPass2faSubTab = 0 },
+                                    label = { Text("Single", fontSize = 11.sp) },
+                                    leadingIcon = if (uidPass2faSubTab == 0) {
+                                        { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                    } else null
+                                )
+                                FilterChip(
+                                    selected = uidPass2faSubTab == 1,
+                                    onClick = { uidPass2faSubTab = 1 },
+                                    label = { Text("Bulk List", fontSize = 11.sp) },
+                                    leadingIcon = if (uidPass2faSubTab == 1) {
+                                        { Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                    } else null
+                                )
+                            }
+                        }
+
+                        if (uidPass2faSubTab == 0) {
+                            // Single Account Form Fields
+                            OutlinedTextField(
+                                value = inputUid,
+                                onValueChange = { inputUid = it },
+                                label = { Text("User ID / UID") },
+                                placeholder = { Text("e.g. 100088273645") },
+                                leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("input_uid_field"),
+                                enabled = isSubmissionEnabled,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = inputPassword,
+                                onValueChange = { inputPassword = it },
+                                label = { Text("Password") },
+                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("input_pass_field"),
+                                enabled = isSubmissionEnabled,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = input2Fa,
+                                onValueChange = { input2Fa = it },
+                                label = { Text("2FA Code / Secret Key") },
+                                placeholder = { Text("e.g. J2X3 K9L1 P8Q0 or 6-digit code") },
+                                leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("input_2fa_field"),
+                                enabled = isSubmissionEnabled,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        } else {
+                            // Bulk Account List Input
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Format: UID|Password|2FA (1 per line)",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                FilledTonalButton(
+                                    onClick = {
+                                        val clipText = clipboardManager.getText()?.text
+                                        if (!clipText.isNullOrBlank()) {
+                                            bulkUidPass2faText = clipText
+                                            Toast.makeText(context, "Clipboard content pasted!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Paste", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = bulkUidPass2faText,
+                                onValueChange = { bulkUidPass2faText = it },
+                                placeholder = {
+                                    Text("100088273645|Aponkhan@123|J2X3K9L1P8Q0\n100099182736|Pass123|839201")
+                                },
+                                minLines = 5,
+                                maxLines = 10,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("bulk_uid_pass_2fa_input"),
+                                enabled = isSubmissionEnabled,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+
+                // SUBMIT BUTTON
                 Button(
                     onClick = {
                         val cat = selectedCategory
@@ -384,8 +597,20 @@ fun UserHomeScreen(
                             Toast.makeText(context, "Category নির্বাচন করুন", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        if (rawCookieText.isBlank()) {
-                            Toast.makeText(context, "Cookie টেক্সট পেস্ট করুন", Toast.LENGTH_SHORT).show()
+
+                        val submissionText = if (submissionHookMode == 0) {
+                            rawCookieText
+                        } else {
+                            if (uidPass2faSubTab == 0) {
+                                if (inputUid.isBlank()) "" else "$inputUid|$inputPassword|$input2Fa"
+                            } else {
+                                bulkUidPass2faText
+                            }
+                        }
+
+                        if (submissionText.isBlank()) {
+                            val msg = if (submissionHookMode == 0) "Cookie টেক্সট পেস্ট করুন" else "UID, Password ও 2FA তথ্য দিন"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -393,21 +618,28 @@ fun UserHomeScreen(
                         viewModel.submitCookieAccounts(
                             category = cat,
                             assignedPassword = activeAdminPassword,
-                            rawCookieText = rawCookieText
+                            rawCookieText = submissionText,
+                            submissionHookMode = if (submissionHookMode == 0) "COOKIE" else "UID_PASS_2FA"
                         ) { success, msg ->
                             isSubmitting = false
                             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                             if (success) {
-                                rawCookieText = ""
+                                if (submissionHookMode == 0) {
+                                    rawCookieText = ""
+                                } else {
+                                    inputUid = ""
+                                    input2Fa = ""
+                                    bulkUidPass2faText = ""
+                                }
                             }
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("submit_cookie_btn"),
+                        .height(52.dp)
+                        .testTag("submit_account_btn"),
                     enabled = isSubmissionEnabled && !isSubmitting,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
@@ -420,7 +652,13 @@ fun UserHomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(Icons.Default.Send, contentDescription = null)
-                            Text("Submit Cookie Now", fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            Text(
+                                text = if (submissionHookMode == 0) "Submit Cookie Accounts" else "Submit UID + Pass + 2FA",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }

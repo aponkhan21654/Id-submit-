@@ -260,7 +260,8 @@ class AppRepository(private val db: AppDatabase) {
         userEmail: String,
         category: CategoryEntity,
         assignedPassword: String,
-        rawInput: String
+        rawInput: String,
+        submissionHookMode: String = "COOKIE"
     ): Result<Int> {
         val config = adminConfigDao.getConfig()
         if (config != null && !config.isSubmissionEnabled) {
@@ -270,7 +271,36 @@ class AppRepository(private val db: AppDatabase) {
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val submissionsList = mutableListOf<SubmissionEntity>()
 
-        if (category.requiresCookieHook) {
+        if (submissionHookMode == "UID_PASS_2FA" || !category.requiresCookieHook) {
+            val lines = rawInput.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            for (line in lines) {
+                val parts = line.split(Regex("""[|\t/,]+""")).map { it.trim() }
+                val uid = parts.getOrNull(0) ?: ""
+                val pass = parts.getOrNull(1)?.ifBlank { assignedPassword } ?: assignedPassword
+                val twoFactor = parts.getOrNull(2) ?: ""
+
+                if (uid.isNotBlank()) {
+                    val rawData = if (twoFactor.isNotBlank()) "$uid|$pass|$twoFactor" else "$uid|$pass"
+                    val formatted = if (twoFactor.isNotBlank()) "$uid/$pass/$twoFactor" else "$uid/$pass"
+                    submissionsList.add(
+                        SubmissionEntity(
+                            userId = userId,
+                            userName = userName,
+                            userEmail = userEmail,
+                            categoryId = category.id,
+                            categoryName = category.name,
+                            uid = uid,
+                            password = pass,
+                            rawCookie = rawData,
+                            formattedString = formatted,
+                            submittedRate = category.rate,
+                            status = "PENDING",
+                            dateString = dateStr
+                        )
+                    )
+                }
+            }
+        } else {
             val lines = rawInput.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
             val cUserRegex = Regex("""c_user=([0-9]+)""")
 
@@ -321,30 +351,14 @@ class AppRepository(private val db: AppDatabase) {
                     )
                 }
             }
-        } else {
-            val lines = rawInput.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-            for (line in lines) {
-                submissionsList.add(
-                    SubmissionEntity(
-                        userId = userId,
-                        userName = userName,
-                        userEmail = userEmail,
-                        categoryId = category.id,
-                        categoryName = category.name,
-                        uid = line,
-                        password = assignedPassword,
-                        rawCookie = line,
-                        formattedString = "$line/$assignedPassword",
-                        submittedRate = category.rate,
-                        status = "PENDING",
-                        dateString = dateStr
-                    )
-                )
-            }
         }
 
         if (submissionsList.isEmpty()) {
-            return Result.failure(Exception("Cookie তে c_user UID পাওয়া যায়নি। সঠিক cookie দিন।"))
+            return if (submissionHookMode == "UID_PASS_2FA") {
+                Result.failure(Exception("কোন বৈধ UID পাওয়া যায়নি। অনুগ্রহ করে UID, Password এবং 2FA দিন।"))
+            } else {
+                Result.failure(Exception("Cookie তে c_user UID পাওয়া যায়নি। সঠিক cookie দিন।"))
+            }
         }
 
         val insertedIds = submissionDao.insertSubmissions(submissionsList)

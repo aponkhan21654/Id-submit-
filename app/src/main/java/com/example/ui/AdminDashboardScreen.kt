@@ -381,17 +381,36 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Checkbox(
-                            checked = newCatHook,
-                            onCheckedChange = { newCatHook = it }
-                        )
-                        Column {
-                            Text("Enable Cookie Hook (c_user UID Extraction)", fontWeight = FontWeight.Bold)
-                            Text("Extracts c_user as UID and formats UID/Password/Cookie", style = MaterialTheme.typography.bodySmall)
+                        Text("Select Submission Hook Mode for this Category:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = newCatHook,
+                                onCheckedChange = { newCatHook = it }
+                            )
+                            Column {
+                                Text(
+                                    text = if (newCatHook) "✓ Cookie Hook Mode" else "✓ UID + Pass + 2FA Hook Mode",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = if (newCatHook)
+                                        "User will paste Cookie strings (extracts c_user UID)"
+                                    else
+                                        "User will enter UID, Password & 2FA secret/code",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
 
@@ -468,9 +487,10 @@ fun AdminDashboardScreen(viewModel: AppViewModel) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(cat.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                         Text(
-                                            text = if (cat.requiresCookieHook) "Hook: c_user UID Enabled" else "Hook: None",
+                                            text = if (cat.requiresCookieHook) "Hook: Cookie Hook" else "Hook: UID + Pass + 2FA",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
 
